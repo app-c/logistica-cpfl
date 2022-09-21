@@ -20,7 +20,6 @@ export function Home() {
    const { user, updateUser } = useAuth();
    const [search, setSearch] = React.useState('');
    const [dataEpi, setDataEpi] = React.useState<IReqEpi[]>([]);
-   const [dataFer, setDataFer] = React.useState<IReqFerramenta[]>([]);
    const [select, setSelect] = React.useState('pendente');
    const [type, setType] = React.useState('EPI');
 
@@ -32,12 +31,12 @@ export function Home() {
 
    React.useEffect(() => {
       const lod = Fire()
-         .collection(colecao.REQEPI)
+         .collection(colecao.soli)
          .onSnapshot(data => {
             const dt = data.docs.map(h => {
                return {
                   ...h.data(),
-                  id: h.id,
+                  Idb: h.id,
                } as IReqEpi;
             });
 
@@ -47,34 +46,25 @@ export function Home() {
       return () => lod();
    }, []);
 
-   React.useEffect(() => {
-      const lod = Fire()
-         .collection(colecao.REQFERRAMENTA)
-         .onSnapshot(data => {
-            const dt = data.docs.map(h => {
-               return {
-                  ...h.data(),
-                  id: h.id,
-               } as IReqFerramenta;
-            });
-
-            setDataFer(dt);
-         });
-
-      return () => lod();
-   }, []);
-
    //* * .................................................................... */
 
-   const filEpi = dataEpi.filter(h => select === h.situacao);
-
-   const filFe = dataFer.filter(h => {
-      if (h.whoFor === 'PESSOAL' && select === h.situacao) {
+   const filEpi = dataEpi.filter(h => {
+      if (select === h.situacao && h.material_info.ft === 'EPI') {
          return h;
       }
    });
 
-   const filFer = dataFer.filter(h => {
+   const filFe = dataEpi.filter(h => {
+      if (
+         h.whoFor === 'PESSOAL' &&
+         select === h.situacao &&
+         h.material_info.ft !== 'EPI'
+      ) {
+         return h;
+      }
+   });
+
+   const filFer = dataEpi.filter(h => {
       if (h.whoFor === 'VEICULO' && h.situacao === select) {
          return h;
       }
@@ -99,12 +89,29 @@ export function Home() {
          ? filFer.filter(h => h.user_info.nome.includes(search))
          : filFer;
 
+   const sendPush = useCallback(async (token: string) => {
+      const message = {
+         to: token,
+         sound: 'default',
+         title: 'SEU PEDIDO ESTÁ PRONTO',
+         body: `Favor vim retirar seu item`,
+      };
+      await fetch('https://exp.host/--/api/v2/push/send', {
+         method: 'POST',
+         headers: {
+            Accept: 'application/json',
+            'Accept-encoding': 'gzip, deflate',
+            'Content-Type': 'application/json',
+         },
+         body: JSON.stringify(message),
+      });
+   }, []);
+
    const handleSubmit = React.useCallback(
       async (situacao: string, id: string, token: string) => {
-         console.log(situacao);
-
+         console.log(token);
          if (situacao === 'separado') {
-            Fire().collection(colecao.REQEPI).doc(id).update({
+            Fire().collection(colecao.soli).doc(id).update({
                situacao: 'entregue',
                data: new Date().getTime(),
             });
@@ -112,45 +119,34 @@ export function Home() {
 
          if (situacao === 'pendente') {
             Fire()
-               .collection(colecao.REQEPI)
+               .collection(colecao.soli)
                .doc(id)
                .update({
                   situacao: 'separado',
                   data: format(new Date(), 'dd/mm/yy'),
                });
 
-            const message = {
-               to: token,
-               sound: 'default',
-               title: 'SEU PEDIDO ESTÁ PRONTO',
-               body: `Favor vim retirar seu item`,
-            };
-            await fetch('https://exp.host/--/api/v2/push/send', {
-               method: 'POST',
-               headers: {
-                  Accept: 'application/json',
-                  'Accept-encoding': 'gzip, deflate',
-                  'Content-Type': 'application/json',
-               },
-               body: JSON.stringify(message),
-            });
+            sendPush(token);
          }
       },
-      [],
+      [sendPush],
    );
 
    const handleSubmitFerramenta = React.useCallback(
       async (situacao: string, id: string, token: string) => {
          if (situacao === 'separado') {
-            Fire().collection(colecao.REQFERRAMENTA).doc(id).update({
-               situacao: 'entregue',
-               data: new Date().getTime(),
-            });
+            Fire()
+               .collection(colecao.soli)
+               .doc(id)
+               .update({
+                  situacao: 'entregue',
+                  data: format(new Date(), 'dd/mm/yy'),
+               });
          }
 
          if (situacao === 'pendente') {
             Fire()
-               .collection(colecao.REQFERRAMENTA)
+               .collection(colecao.soli)
                .doc(id)
                .update({
                   situacao: 'separado',
@@ -180,7 +176,7 @@ export function Home() {
    const handleSubmitFerramental = React.useCallback(
       async (situacao: string, id: string, token: string) => {
          if (situacao === 'separado') {
-            Fire().collection(colecao.REQFERRAMENTA).doc(id).update({
+            Fire().collection(colecao.soli).doc(id).update({
                situacao: 'entregue',
                data: new Date().getTime(),
             });
@@ -188,7 +184,7 @@ export function Home() {
 
          if (situacao === 'pendente') {
             Fire()
-               .collection(colecao.REQFERRAMENTA)
+               .collection(colecao.soli)
                .doc(id)
                .update({
                   situacao: 'separado',
@@ -247,19 +243,10 @@ export function Home() {
             Fire().collection(colecao.ALMOXERIFE).doc(user.id).update({
                token,
             });
-
-            Fire()
-               .collection(colecao.ALMOXERIFE)
-               .doc(user.id)
-               .get()
-               .then(h => {
-                  const upUser = h.data() as IUser;
-                  updateUser(upUser);
-               });
          }
 
          return () => loadToken();
-      }, [updateUser, user.id]),
+      }, [user.id]),
    );
 
    const handleShowModalDetails = React.useCallback((data: IReqEpi) => {
@@ -274,8 +261,6 @@ export function Home() {
       },
       [],
    );
-
-   console.log(propsItemFerr);
 
    return (
       <Box flex="1">
@@ -372,7 +357,7 @@ export function Home() {
                         description={h.description}
                         situacao={h.situacao}
                         pres={() =>
-                           handleSubmit(h.situacao, h.id, h.user_info.token)
+                           handleSubmit(h.situacao, h.Idb, h.user_info.token)
                         }
                         showDetails={() => handleShowModalDetails(h)}
                      />
@@ -397,7 +382,7 @@ export function Home() {
                         pres={() =>
                            handleSubmitFerramenta(
                               h.situacao,
-                              h.id,
+                              h.Idb,
                               h.user_info.token,
                            )
                         }
@@ -424,7 +409,7 @@ export function Home() {
                         pres={() =>
                            handleSubmitFerramental(
                               h.situacao,
-                              h.id,
+                              h.Idb,
                               h.user_info.token,
                            )
                         }

@@ -19,6 +19,7 @@ export interface IMaterial {
 }
 
 export interface IReqEpi {
+   Idb: string;
    id?: string;
    whoFor: string;
    data: string;
