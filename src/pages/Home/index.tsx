@@ -40,11 +40,13 @@ export function Home() {
                } as IReqEpi;
             });
 
-            setDataEpi(dt);
+            const fil = dt.filter(p => p.user_info.city === user.city);
+
+            setDataEpi(fil);
          });
 
       return () => lod();
-   }, []);
+   }, [user.city]);
 
    //* * .................................................................... */
 
@@ -109,13 +111,14 @@ export function Home() {
 
    const handleSubmit = React.useCallback(
       async (situacao: string, id: string, token: string) => {
-         console.log(token);
          if (situacao === 'separado') {
             Fire().collection(colecao.soli).doc(id).update({
                situacao: 'entregue',
                data: new Date().getTime(),
             });
          }
+
+         console.log(situacao);
 
          if (situacao === 'pendente') {
             Fire()
@@ -125,6 +128,8 @@ export function Home() {
                   situacao: 'separado',
                   data: format(new Date(), 'dd/mm/yy'),
                });
+
+            console.log('token: ', token);
 
             sendPush(token);
          }
@@ -188,7 +193,7 @@ export function Home() {
                .doc(id)
                .update({
                   situacao: 'separado',
-                  data: format(new Date(), 'dd/mm/yy'),
+                  data: format(new Date(), 'dd/MM/yy'),
                });
 
             const message = {
@@ -211,43 +216,47 @@ export function Home() {
       [],
    );
 
-   useFocusEffect(
-      useCallback(() => {
-         async function loadToken() {
-            const { status: existingStatus } =
-               await Notifications.getPermissionsAsync();
-            let finalStatus = existingStatus;
-            if (existingStatus !== 'granted') {
-               const { status } = await Notifications.requestPermissionsAsync();
-               finalStatus = status;
-            }
-            if (finalStatus !== 'granted') {
-               Alert.alert('Failed to get push token for push notification!');
-               return;
-            }
-            const token = (
-               await Notifications.getExpoPushTokenAsync({
-                  experienceId: '@app-c/reqalmoxerife',
-               })
-            ).data;
+   const updateToken = React.useCallback(async () => {
+      const { status: existingStatus } =
+         await Notifications.getPermissionsAsync();
+      let finalStatus = existingStatus;
+      if (existingStatus !== 'granted') {
+         const { status } = await Notifications.requestPermissionsAsync();
+         finalStatus = status;
+      }
+      if (finalStatus !== 'granted') {
+         Alert.alert('Failed to get push token for push notification!');
+         return;
+      }
+      const token = (
+         await Notifications.getExpoPushTokenAsync({
+            experienceId: '@app-c/reqalmoxerife',
+         })
+      ).data;
 
-            if (Platform.OS === 'android') {
-               Notifications.setNotificationChannelAsync('default', {
-                  name: 'default',
-                  importance: Notifications.AndroidImportance.MAX,
-                  vibrationPattern: [0, 250, 250, 250],
-                  lightColor: '#FF231F7C',
-               });
-            }
+      if (Platform.OS === 'android') {
+         Notifications.setNotificationChannelAsync('default', {
+            name: 'default',
+            importance: Notifications.AndroidImportance.MAX,
+            vibrationPattern: [0, 250, 250, 250],
+            lightColor: '#FF231F7C',
+         });
+      }
 
-            Fire().collection(colecao.ALMOXERIFE).doc(user.id).update({
-               token,
-            });
-         }
+      Fire().collection(colecao.ALMOXERIFE).doc(user.id).update({
+         token,
+      });
+   }, [user]);
 
-         return () => loadToken();
-      }, [user.id]),
-   );
+   React.useEffect(() => {
+      updateToken();
+   }, [updateToken]);
+
+   // useFocusEffect(
+   //    useCallback(() => {
+   //       updateToken();
+   //    }, []),
+   // );
 
    const handleShowModalDetails = React.useCallback((data: IReqEpi) => {
       setShowModalDetails(true);
@@ -261,6 +270,8 @@ export function Home() {
       },
       [],
    );
+
+   console.log(lista);
 
    return (
       <Box flex="1">

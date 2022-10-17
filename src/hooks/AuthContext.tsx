@@ -74,7 +74,8 @@ export const AuthProvider: React.FC = ({ children }) => {
                   .doc(au.user.uid)
                   .get()
                   .then(async profile => {
-                     const { nome, token, matricula } = profile.data() as IUser;
+                     const { nome, token, matricula, city } =
+                        profile.data() as IUser;
 
                      if (profile.exists) {
                         const userData = {
@@ -83,6 +84,7 @@ export const AuthProvider: React.FC = ({ children }) => {
                            nome,
                            matricula,
                            token,
+                           city,
                         };
                         await AsyncStorage.setItem(
                            User_Collection,

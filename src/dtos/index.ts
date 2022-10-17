@@ -5,6 +5,7 @@ export interface IUser {
    matricula: number;
    id: string;
    token: string;
+   city: string;
 }
 
 export interface IMaterial {
